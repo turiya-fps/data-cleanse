@@ -1,0 +1,8 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+cd api
+npm run lint
+echo "Building test image and invoking functions in container...."
+npm run build
+npm run test

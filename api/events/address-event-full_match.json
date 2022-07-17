@@ -1,0 +1,13 @@
+{
+  "body": "{\"query\": \"Abbey Road Studios, 3 Abbey Road, London NW8 9AY\", \"country\": \"GB\"}",
+  "resource": "/{proxy+}",
+  "path": "/address",
+  "httpMethod": "GET",
+  "isBase64Encoded": false,
+  "queryStringParameters": {
+    "token": "52a07-524ed-8a4d4-067b0"
+  },
+  "requestContext": {
+    "stage": "dev"
+  }
+}

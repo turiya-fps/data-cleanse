@@ -1,0 +1,13 @@
+{
+  "resource": "/{proxy+}",
+  "path": "/address",
+  "httpMethod": "GET",
+  "isBase64Encoded": false,
+  "queryStringParameters": {},
+  "headers": {
+    "User-Agent": "ELB-HealthChecker/2.0"
+  },
+  "requestContext": {
+    "stage": "dev"
+  }
+}

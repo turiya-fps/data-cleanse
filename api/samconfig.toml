@@ -1,0 +1,47 @@
+version = 0.1
+[staging-EU]
+[staging-EU.deploy]
+[staging-EU.deploy.parameters]
+stack_name = "data-cleanse-api-STAGING"
+s3_bucket = "data-cleanse-api-euw2"
+s3_prefix = "staging"
+region = "eu-west-2"
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["AddressCleanseFunction=381927059233.dkr.ecr.eu-west-2.amazonaws.com/data-cleanse-api-staging"]
+parameter_overrides = "Env=staging"
+
+[staging-US]
+[staging-US.deploy]
+[staging-US.deploy.parameters]
+stack_name = "data-cleanse-api-STAGING"
+s3_bucket = "data-cleanse-api-usw2"
+s3_prefix = "staging"
+region = "us-west-2"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["AddressCleanseFunction=381927059233.dkr.ecr.us-west-2.amazonaws.com/data-cleanse-api-staging"]
+parameter_overrides = "Env=staging"
+
+[prod-EU]
+[prod-EU.deploy]
+[prod-EU.deploy.parameters]
+stack_name = "data-cleanse-api-PROD"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-ik0aj2mlk0b4"
+s3_prefix = "prod"
+region = "eu-west-2"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["AddressCleanseFunction=381927059233.dkr.ecr.eu-west-2.amazonaws.com/data-cleanse-api-prod"]
+parameter_overrides = "Env=prod"
+
+[prod-US]
+[prod-US.deploy]
+[prod-US.deploy.parameters]
+stack_name = "data-cleanse-api-PROD"
+s3_bucket = "data-cleanse-api-usw2"
+s3_prefix = "prod"
+region = "us-west-2"
+confirm_changeset = false
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["AddressCleanseFunction=381927059233.dkr.ecr.us-west-2.amazonaws.com/data-cleanse-api-prod"]
+parameter_overrides = "Env=prod"

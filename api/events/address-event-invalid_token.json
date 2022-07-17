@@ -1,0 +1,13 @@
+{
+  "body": "{\"query\": \"fetchify\", \"country\": \"gb\"}",
+  "resource": "/{proxy+}",
+  "path": "/address",
+  "httpMethod": "GET",
+  "isBase64Encoded": false,
+  "queryStringParameters": {
+    "token": "invalid_token_value"
+  },
+  "requestContext": {
+    "stage": "dev"
+  }
+}

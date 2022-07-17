@@ -1,0 +1,7 @@
+.aws-sam/
+packaged.yml
+node_modules/
+~/package*.json
+sam_logs
+api/test/live-test/output/*
+merge_request_iid.txt

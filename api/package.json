@@ -1,0 +1,33 @@
+{
+  "name": "data-cleanse-api",
+  "version": "1.5.0",
+  "description": "A NodeJS application with SAM / Lambda",
+  "main": "functions/address/src/app.js",
+  "repository": "https://gitlab.com/craftyclicks/api-services/data-cleanse",
+  "private": true,
+  "scripts": {
+    "rebuild": "nodemon --watch app --watch functions/address/src/app.js --exec sam build",
+    "test": "mocha test/ --timeout 10000",
+    "local-invoke": "sam local invoke -e events/address-event-partial_match.json AddressCleanseFunction",
+    "build": "sam build && npm run local-invoke",
+    "lint": "./node_modules/.bin/eslint . --fix",
+    "postinstall": "cd .. && husky install api/.husky && chmod +x api/.husky/pre-commit",
+    "live-test": "node test/live-test/index.js"
+  },
+  "author": "Turiya Pearce-Smith",
+  "license": "ISC",
+  "dependencies": {
+    "@sentry/serverless": "^7.1.1",
+    "axios": "^0.21.1"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "eslint": "^7.25.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.22.1",
+    "fs": "^0.0.1-security",
+    "husky": "^7.0.1",
+    "mocha": "^8.2.1",
+    "nodemon": "^2.0.12"
+  }
+}

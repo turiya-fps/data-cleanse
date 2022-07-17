@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform:
+- AWS::Serverless-2016-10-31
+Description: 'Combined API LoadBalancer
+
+  '
+Parameters:
+  ALBSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  ALBName:
+    Type: String
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name:
+        Ref: ALBName
+      Scheme: internet-facing
+      Subnets:
+        Ref: ALBSubnets
+      SecurityGroups:
+      - Ref: LoadBalancerSecurityGroup
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow http to client host
+      VpcId:
+        Ref: VpcId
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 500
+        CidrIp: '0.0.0.0/0'
+  ListenerRuleDefault:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      Actions:
+      - Type: fixed-response
+        FixedResponseConfig:
+          StatusCode: 200
+          ContentType: application/json
+          MessageBody: Default response
+      Conditions:
+      - Field: path-pattern
+        PathPatternConfig:
+          Values:
+          - /default
+      ListenerArn:
+        Ref: ListenerDefault
+      Priority: 40000
+  ListenerDefault:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+      - arn:aws:acm:us-west-2:381927059233:certificate/a23c1da0-ed09-4257-8b9a-1e424851bba7
+      DefaultActions:
+      - TargetGroupArn:
+          Ref: TargetGroupDefault
+        Type: forward
+  TargetGroupDefault:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Port: 443
+      Protocol: HTTPS
+      VpcId:
+        Ref: VpcId
+Outputs:
+  ALB:
+    Description: The loadbalancer
+    Value:
+      Ref: LoadBalancer
+  TargetGroupDefault:
+    Description: The created TargetGroup for Default function
+    Value:
+      Ref: TargetGroupDefault

@@ -1,0 +1,187 @@
+image: docker:20
+
+workflow:
+  rules:
+    # # Pushes (CI development purposes only)
+    # - if: $CI_PIPELINE_SOURCE == "push"
+    # Pipeline for MRs into develop (unit test)
+    - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop")
+    # Pipeline for MRs into master from release branches (unit_test, build_staging, deploy_staging)
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /(release)\/(\d+\.\d+\.\d+)/
+    # Pipeline for completed merges into master from release branches (build prod, deploy prod)
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+    - when: never
+
+cache:
+  untracked: true
+  paths:
+    - api/node_modules/
+    - api/.aws-sam/
+    - merge_request_iid.txt
+
+stages:
+  - test:build
+  - test:run
+  - deploy
+  - release:log
+  - release:tag
+  - release:post
+  - back-merge
+  
+install_test_dependencies:
+  image: node:14-alpine
+  stage: test:build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /(release)\/(\d+\.\d+\.\d+)/
+  script:
+    - cd api
+    - npm install --no-optional
+    - npm install --save-dev chai
+    - npm install --save-dev mocha
+    - npm install --save-dev fs
+
+unit_test:
+  image: node:14-alpine
+  stage: test:run
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /(release)\/(\d+\.\d+\.\d+)/
+  script:
+    - cd api
+    - npm run test
+  dependencies: 
+    - install_test_dependencies
+
+validate_specfile:
+  image: node:14-alpine
+  stage: test:run
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+  script:
+    - npm install -g @apidevtools/swagger-cli
+    - swagger-cli validate api/openapispec.yml
+
+deploy_staging:
+  stage: deploy
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /(release)\/(\d+\.\d+\.\d+)/
+  services:
+    - docker:dind
+  allow_failure: false
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
+    - docker info
+    - apk -v --no-cache --update add python3 python3-dev gcc musl-dev curl && rm -rf /var/cache/apk/*
+    - python3 -m ensurepip --upgrade && pip3 install --upgrade pip
+    - pip3 install --upgrade awscli aws-sam-cli
+    - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+    - echo ${CI_MERGE_REQUEST_IID} > merge_request_iid.txt
+    - cat merge_request_iid.txt
+  script:
+    - echo Deploying staging system...
+    - cd api
+    - sam build
+    - sam deploy --config-env staging-US
+    # - sam deploy --config-env staging-EU
+    - chmod +x ../ci/verify_deployment.sh
+    - ../ci/verify_deployment.sh staging address
+    - echo "Staging system deployed successfully"
+    - exit 0
+
+deploy_prod:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+  services:
+    - docker:dind
+  allow_failure: false
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" "$CI_REGISTRY" --password-stdin
+    - docker info
+    - apk -v --no-cache --update add python3 python3-dev gcc musl-dev curl && rm -rf /var/cache/apk/*
+    - python3 -m ensurepip --upgrade && pip3 install --upgrade pip
+    - pip3 install --upgrade awscli aws-sam-cli
+    - aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+  script:
+    - echo Deploying prod system...
+    - cd api
+    - sam build
+    - sam deploy --config-env prod-US
+    - sam deploy --config-env prod-EU
+    - chmod +x ../ci/verify_deployment.sh
+    - ../ci/verify_deployment.sh prod address
+    - echo "Prod system deployed successfully"
+    - exit 0
+
+deploy_specfile:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+  image:
+    name: amazon/aws-cli
+    entrypoint: [""]
+  stage: deploy
+  allow_failure: true
+  script:
+    - aws s3 cp api/openapispec.yml s3://openapi-spec-files/data-cleanse-api/openapispec.yml --content-type text/x-yaml --content-disposition inline
+
+generate_changelog:
+  stage: release:log
+  rules:
+     - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+  image: alpine:3.14.0
+  before_script:
+    - apk --no-cache add curl
+    - apk --no-cache add jq
+  script:
+    - chmod +x ./ci/generate_changelog.sh
+    - ./ci/generate_changelog.sh
+  artifacts:
+    paths:
+      - changelog.txt
+    expire_in: 1 day
+  interruptible: true
+
+create_release_tag:
+  stage: release:tag
+  dependencies:
+    - generate_changelog
+  allow_failure: true
+  rules:
+     - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch 'release)\/(\d+\.\d+\.\d+)' into 'master'/
+  image: alpine:3.14.0
+  before_script:
+    - apk --no-cache add curl
+  script:
+    - chmod +x ./ci/create_release_tag.sh
+    - ci/create_release_tag.sh
+  interruptible: true
+
+post_to_release_channel:
+  stage: release:post
+  dependencies:
+    - generate_changelog
+  allow_failure: true
+  rules: 
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch '(release)\/(\d+\.\d+\.\d+)') into 'master'/
+  image: alpine:3.14.0
+  before_script:
+    - apk --no-cache add curl
+    - apk --no-cache add jq
+  script:
+    - chmod +x ./ci/release_post.sh
+    - ./ci/release_post.sh
+  interruptible: true
+
+create_backmerge_MR:
+  image: alpine:3.14.0
+  stage: back-merge
+  allow_failure: true
+  rules: 
+    - if: $CI_COMMIT_BRANCH == "master" && $CI_COMMIT_TITLE =~ /(Merge branch '(release)\/(\d+\.\d+\.\d+)') into 'master'/
+  before_script:
+    - apk --no-cache add curl
+  script:
+    - chmod +x ./ci/auto_mr.sh
+    - ./ci/auto_mr.sh
+  interruptible: true

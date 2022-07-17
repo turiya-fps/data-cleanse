@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: ["AWS::Serverless-2016-10-31"]
+Description:
+  Template for Data Cleanse Api
+Globals:
+  Function:
+    Timeout: 10
+Parameters:
+  Env:
+    Type: String
+Conditions:
+  IsProd: 
+    !Equals [!Ref Env, 'prod']  
+Resources:
+  AddressCleanseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      ImageConfig:
+        Command: [ "functions/address/src/app.addressHandler" ]
+      CodeUri: ./functions/address
+      VpcConfig:
+        SecurityGroupIds:         
+          - !ImportValue
+              'Fn::Sub': '${Env}-${AWS::Region}-LambdaSecurityGroup'
+        SubnetIds:  
+          - !ImportValue
+              'Fn::Sub': '${Env}-${AWS::Region}-PrivateSubnet'
+      AutoPublishAlias: live
+      VersionDescription: "1.5.0"
+    Metadata:
+      DockerTag: nodejs14.x-v1
+      DockerContext: ./
+      Dockerfile: Dockerfile 
+  TargetGroupAddress:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: AddressCleanseFunctionInvokePermission
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckPath: "/address"
+      HealthCheckTimeoutSeconds: 30
+      HealthCheckIntervalSeconds: 35
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      TargetType: lambda
+      Targets:
+      - Id: !Sub '${AddressCleanseFunction.Arn}:live'
+  ALBLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Sub '${AddressCleanseFunction.Arn}:live'
+      Principal: elasticloadbalancing.amazonaws.com
+  ListenerRuleAddress:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    DependsOn:
+      - TargetGroupAddress
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupAddress
+      Conditions: 
+        - Field: host-header
+          HostHeaderConfig:
+            Values: 
+              - !If [IsProd, "api.cleanse.fetchify.com", "staging.cleanse.fetchify.com"]
+        - Field: path-pattern
+          PathPatternConfig:
+            Values: 
+              - "/address"
+      ListenerArn: !ImportValue
+                      'Fn::Sub': '${Env}-${AWS::Region}-AlbListener'
+      Priority: 5
+  ListenerRuleDeprecated:
+    Type: 'AWS::ElasticLoadBalancingV2::ListenerRule'
+    DependsOn:
+      - TargetGroupAddress
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupAddress
+      Conditions: 
+        - Field: path-pattern
+          PathPatternConfig:
+            Values: 
+              - "/address/cleanse"
+      ListenerArn: !ImportValue
+                      'Fn::Sub': '${Env}-${AWS::Region}-AlbListener'
+      Priority: 6
+  AddressCleanseFunctionInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AddressCleanseFunction.Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: elasticloadbalancing.amazonaws.com
+Outputs:
+  TargetGroupAddress:
+    Description: The created TargetGroup for Address function
+    Value: !Ref TargetGroupAddress
+  AddressCleanseFunction:
+    Description: "AddressCleanseFunction ARN"
+    Value: !GetAtt AddressCleanseFunction.Arn
+  AddressCleanseFunctionIamRole:
+    Description: "Implicit IAM Role created for AddressCleanseFunction"
+    Value: !GetAtt AddressCleanseFunctionRole.Arn

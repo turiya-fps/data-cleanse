@@ -1,0 +1,149 @@
+openapi: 3.1.0
+info:
+  description: API for cleansing address data
+  version: 1.0.0-oas3
+  title: Data Cleanse API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+paths:
+  /address:
+    get:
+      summary: cleanse a single address
+      operationId: cleanse/address
+      description: >
+        Submit an address string and country code. Responds with the complete
+        address, which will be the best match returned by our address search
+        engine.
+      parameters:
+        - in: query
+          name: token
+          description: Pass a valid Fetchify access token
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: query
+          description: Search query of address to be cleansed
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: country
+          description: ISO 3166-1 code for country of the address to be cleansed. Supports alpha-2, alpha-3, and numeric
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: search results matching criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchResponse'
+        
+servers:
+  - url: https://api.cleanse.fetchify.com/address
+components:
+  schemas:
+    MatchResponse:
+      properties:
+        status:
+          type: string
+          example: partial_match
+        address:
+          type: string
+          example: Buckingham Palace, London, SW1A 1AA, United Kingdom
+        fields:
+          type: object
+          properties:
+            alternative_town:
+              type: string
+              example: ''
+            alternative_region:
+              type: string
+              example: Middlesex
+            building:
+              type: string
+              example: ''
+            building_lev_1_ind:
+              type: string
+              example: ''
+            country_name:
+              type: string
+              example: United Kingdom
+            del_serv_id:
+              type: string
+              example: ''
+            district_lev_1_pos_1:
+              type: string
+              example: ''
+            district_lev_2_pos_1:
+              type: string
+              example: ''
+            extension_designation:
+              type: string
+              example: ''
+            floor:
+              type: string
+              example: ''
+            org_name:
+              type: string
+              example: Buckingham Palace
+            org_unit:
+              type: string
+              example: ''
+            postcode:
+              type: string
+              example: SW1A 1AA
+            prem_id:
+              type: string
+              example: ''
+            prim_thoro_name:
+              type: string
+              example: ''
+            region:
+              type: string
+              example: ''
+            region_code:
+              type: string
+              example: London
+            region_name:
+              type: string
+              example: London
+            sec_thoro_name:
+              type: string
+              example: ''
+            succ_prim_thoro_type:
+              type: string
+              example: ''
+            succ_sec_thoro_type:
+              type: string
+              example: ''
+            town:
+              type: string
+              example: London
+        optional_fields:
+          type: object
+          properties:
+            udprn:
+              type: string
+              example: '23747212'
+            dps:
+              type: string
+              example: 1A
+            uprn:
+              type: string
+              example: '10033544614'
+    ErrorResponse:
+      properties:
+        error:
+          type: object
+          properties:
+            type:
+              type: string
+              example: invalid_country_code
+            message:
+              type: string
+              example: Country code must be of ISO 3166-1 type
+
