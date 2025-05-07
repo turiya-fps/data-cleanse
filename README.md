@@ -1,4 +1,4 @@
-# Fetchify Data Cleansing API
+# Data Cleansing API
 
 ## Project Overview
 This serverless application essentially wraps the `best_match_only` functionality offered by the Fetchify Validation API. It currently exposes an address-cleansing endpoint.
